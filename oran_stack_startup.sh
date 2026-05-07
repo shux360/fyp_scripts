@@ -48,12 +48,12 @@ open_terminal() {
 # Step 1: RIC Stack
 echo -e "${BLUE}[1/4]${NC} Starting RIC Stack..."
 open_terminal "RIC Stack" "cd ${RIC_PATH} && docker compose up"
-sleep 2
+sleep 5
 
 # Step 2: Open 5GS Core
 echo -e "${BLUE}[2/4]${NC} Starting Open 5GS Core..."
 open_terminal "5GS Core" "cd ${SRSRAN_PATH} && docker compose up 5gc"
-sleep 2
+sleep 5
 
 # Step 3: srsRAN gNB
 echo -e "${BLUE}[3/4]${NC} Starting srsRAN gNB..."
@@ -61,7 +61,7 @@ echo -e "${YELLOW}⏳ Waiting 5 seconds before starting gNB...${NC}"
 sleep 5
 open_terminal "srsRAN gNB" "cd ${CONFIGS_PATH} && gnb -c gnb_zmq.yaml"
 echo -e "${YELLOW}💡 Watch for gNB connecting to AMF in the terminal${NC}"
-sleep 3
+sleep 5
 
 # Step 4: srsUE
 echo -e "${BLUE}[4/4]${NC} Starting srsUE..."
