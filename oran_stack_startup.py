@@ -11,22 +11,33 @@ import os
 from pathlib import Path
 
 # Configuration
-SRSRAN_PATH = "/fyp/srsRAN_Project"
-RIC_PATH = "/fyp/oran-sc-ric"
+BASE_PATH = "/root/fyp"
+SRSRAN_PATH = f"{BASE_PATH}/srsRAN_Project"
+CORE5G_PATH = f"{BASE_PATH}/srsRAN_Project/docker"
+RIC_PATH = f"{BASE_PATH}/oran-sc-ric"
 CONFIGS_PATH = f"{SRSRAN_PATH}/configs"
+
+# Config files
+GNB_CONFIG = "gnb_zmq.yaml"
+UE_CONFIG = "ue_zmq.conf"
 
 class ORANStackStarter:
     def __init__(self):
         self.processes = []
-        self.is_wsl = self._detect_wsl()
+        self._validate_paths()
         
-    def _detect_wsl(self):
-        """Detect if running in WSL"""
-        try:
-            with open('/proc/version', 'r') as f:
-                return 'microsoft' in f.read().lower()
-        except:
-            return False
+    def _validate_paths(self):
+        """Validate all required paths exist"""
+        paths = {
+            "RIC": RIC_PATH,
+            "srsRAN": SRSRAN_PATH,
+            "Configs": CONFIGS_PATH,
+            "5GC": CORE5G_PATH
+        }
+        for name, path in paths.items():
+            if not os.path.isdir(path):
+                print(f"[ERROR] {name} path not found: {path}")
+                sys.exit(1)
     
     def _get_terminal_command(self, command_str):
         """Get the appropriate terminal command based on OS"""
@@ -34,111 +45,64 @@ class ORANStackStarter:
             # Use Windows terminal or WSL
             return f'wsl bash -c "{command_str}"'
         else:
-            # Use gnome-terminal or xterm for Linux
-            if os.system('which gnome-terminal > /dev/null 2>&1') == 0:
-                return f'gnome-terminal -- bash -c "{command_str}"'
-            elif os.system('which xterm > /dev/null 2>&1') == 0:
-                return f'xterm -e bash -c "{command_str}"'
-            else:
-                # Fallback to bash -c
-                return f'bash -c "{command_str}"'
+            # Use tmux for Linux
+            return command_str
+    
+    def start_tmux_session(self, session_name, title, command):
+        """Start a tmux session with the given command"""
+        print(f"[*] Starting {title} in tmux session: {session_name}")
+        
+        # Check if session exists
+        check_cmd = f"tmux has-session -t {session_name} 2>/dev/null && tmux kill-session -t {session_name}; sleep 1"
+        os.system(check_cmd)
+        
+        # Create new tmux session
+        tmux_cmd = f"tmux new-session -d -s {session_name} \"bash -lc '{command}; echo; echo \\\"Process exited. Press Ctrl+b then d to detach.\\\"; exec bash'\""
+        result = os.system(tmux_cmd)
+        
+        if result == 0:
+            print(f"   ✓ {title} started in session: {session_name}")
+        else:
+            print(f"   [ERROR] Failed to start {title}")
+            sys.exit(1)
     
     def start_ric_stack(self):
         """Step 1: Start the RIC stack"""
-        print("[1/4] Starting RIC stack...")
+        print("[1/4] Starting RIC Stack...")
         cmd = f'cd {RIC_PATH} && docker compose up'
-        
-        if sys.platform == 'win32':
-            # Use Windows terminal for WSL
-            proc = subprocess.Popen(
-                ['wsl', 'bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        else:
-            proc = subprocess.Popen(
-                ['bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        
-        self.processes.append(('RIC Stack', proc))
-        print(f"   ✓ RIC stack started (PID: {proc.pid})")
-        time.sleep(3)
+        self.start_tmux_session("ric_stack", "RIC Stack", cmd)
+        time.sleep(5)
     
     def start_5gc(self):
         """Step 2: Start the Open 5GS core"""
-        print("[2/4] Starting Open 5GS core...")
-        cmd = f'cd {SRSRAN_PATH} && docker compose up 5gc'
-        
-        if sys.platform == 'win32':
-            proc = subprocess.Popen(
-                ['wsl', 'bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        else:
-            proc = subprocess.Popen(
-                ['bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        
-        self.processes.append(('5GS Core', proc))
-        print(f"   ✓ 5GS core started (PID: {proc.pid})")
-        time.sleep(3)
+        print("[2/4] Starting Open5GS Core...")
+        cmd = f'cd {CORE5G_PATH} && docker compose up 5gc'
+        self.start_tmux_session("open5gs_core", "Open5GS Core", cmd)
+        time.sleep(5)
     
     def start_gnb(self):
         """Step 3: Start the srsRAN gNB"""
         print("[3/4] Starting srsRAN gNB...")
-        cmd = f'cd {CONFIGS_PATH} && gnb -c gnb_zmq.yaml'
-        
-        if sys.platform == 'win32':
-            proc = subprocess.Popen(
-                ['wsl', 'bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        else:
-            proc = subprocess.Popen(
-                ['bash', '-c', cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        
-        self.processes.append(('srsRAN gNB', proc))
-        print(f"   ✓ srsRAN gNB started (PID: {proc.pid})")
-        print("   ⏳ Waiting for gNB to connect to AMF...")
+        print("   ⏳ Waiting 5 seconds before starting gNB...")
+        time.sleep(5)
+        cmd = f'cd {CONFIGS_PATH} && gnb -c {GNB_CONFIG}'
+        self.start_tmux_session("gnb", "srsRAN gNB", cmd)
+        print("   💡 Check gNB logs for AMF and E2 connection.")
         time.sleep(5)
     
     def start_ue(self):
         """Step 4: Start the srsUE"""
         print("[4/4] Starting srsUE...")
-        
-        # Create network namespace and start UE
-        setup_cmd = f'sudo ip netns add ue1; cd {CONFIGS_PATH} && sudo srsue ue_zmq.conf'
-        
-        if sys.platform == 'win32':
-            proc = subprocess.Popen(
-                ['wsl', 'bash', '-c', setup_cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        else:
-            proc = subprocess.Popen(
-                ['bash', '-c', setup_cmd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        
-        self.processes.append(('srsUE', proc))
-        print(f"   ✓ srsUE started (PID: {proc.pid})")
+        print("   ⏳ Waiting 5 seconds before starting UE...")
+        time.sleep(5)
+        cmd = f'sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd {CONFIGS_PATH} && sudo srsue {UE_CONFIG}'
+        self.start_tmux_session("ue", "srsUE", cmd)
     
     def run(self):
         """Run all startup steps"""
-        print("=" * 60)
-        print("ORAN Stack Startup Script")
-        print("=" * 60)
+        print("=" * 70)
+        print(" " * 15 + "ORAN Stack Startup Script - tmux Version")
+        print("=" * 70)
         print()
         
         try:
@@ -148,16 +112,34 @@ class ORANStackStarter:
             self.start_ue()
             
             print()
-            print("=" * 60)
-            print("All components started successfully!")
-            print("=" * 60)
+            print("=" * 70)
+            print("✓ All components started in tmux sessions.")
+            print("=" * 70)
             print()
-            print("Running processes:")
-            for name, proc in self.processes:
-                print(f"  • {name}: PID {proc.pid}")
+            print("View running sessions:")
+            print("  tmux ls")
             print()
-            print("To stop all services, press Ctrl+C")
-            print("=" * 60)
+            print("Attach to RIC Stack:")
+            print("  tmux attach -t ric_stack")
+            print()
+            print("Attach to Open5GS Core:")
+            print("  tmux attach -t open5gs_core")
+            print()
+            print("Attach to gNB:")
+            print("  tmux attach -t gnb")
+            print()
+            print("Attach to UE:")
+            print("  tmux attach -t ue")
+            print()
+            print("Detach from any tmux session without stopping it:")
+            print("  Ctrl+b then d")
+            print()
+            print("Stop all ORAN sessions:")
+            print("  tmux kill-session -t ric_stack")
+            print("  tmux kill-session -t open5gs_core")
+            print("  tmux kill-session -t gnb")
+            print("  tmux kill-session -t ue")
+            print("=" * 70)
             
             # Keep the script running
             try:
@@ -173,22 +155,11 @@ class ORANStackStarter:
             sys.exit(1)
     
     def cleanup(self):
-        """Terminate all processes"""
-        for name, proc in self.processes:
-            if proc.poll() is None:  # Process is still running
-                try:
-                    proc.terminate()
-                    print(f"  • Terminated {name} (PID: {proc.pid})")
-                except:
-                    pass
-        
-        # Wait for all processes to terminate
-        for name, proc in self.processes:
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                print(f"  • Force killed {name} (PID: {proc.pid})")
+        """Terminate all tmux sessions"""
+        sessions = ["ric_stack", "open5gs_core", "gnb", "ue"]
+        for session in sessions:
+            os.system(f"tmux kill-session -t {session} 2>/dev/null || true")
+            print(f"  • Terminated tmux session: {session}")
 
 if __name__ == "__main__":
     starter = ORANStackStarter()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ORAN Stack Startup Script - Advanced Version with Separate Terminal Windows
-Starts each component in its own terminal window for easier monitoring
+ORAN Stack Startup Script - Advanced Version with tmux
+Starts each component in a separate tmux session
 """
 
 import subprocess
@@ -10,133 +10,132 @@ import sys
 import os
 
 # Configuration
-SRSRAN_PATH = "/fyp/srsRAN_Project"
-RIC_PATH = "/fyp/oran-sc-ric"
+BASE_PATH = "/root/fyp"
+SRSRAN_PATH = f"{BASE_PATH}/srsRAN_Project"
+CORE5G_PATH = f"{BASE_PATH}/srsRAN_Project/docker"
+RIC_PATH = f"{BASE_PATH}/oran-sc-ric"
 CONFIGS_PATH = f"{SRSRAN_PATH}/configs"
+
+# Config files
+GNB_CONFIG = "gnb_zmq.yaml"
+UE_CONFIG = "ue_zmq.conf"
 
 class ORANStackStarterAdvanced:
     def __init__(self):
         self.terminal_pids = []
+        self._validate_paths()
+        self._check_tmux()
+    
+    def _validate_paths(self):
+        """Validate all required paths exist"""
+        paths = {
+            "RIC": RIC_PATH,
+            "srsRAN": SRSRAN_PATH,
+            "Configs": CONFIGS_PATH,
+            "5GC": CORE5G_PATH
+        }
+        for name, path in paths.items():
+            if not os.path.isdir(path):
+                print(f"\033[91m[ERROR]\033[0m {name} path not found: {path}")
+                sys.exit(1)
+    
+    def _check_tmux(self):
+        """Check if tmux is installed"""
+        if os.system("which tmux > /dev/null 2>&1") != 0:
+            print("\033[91m[ERROR]\033[0m tmux is not installed.")
+            print("Install it using: sudo apt update && sudo apt install -y tmux")
+            sys.exit(1)
+    
+    def start_tmux_session(self, session_name, title, command):
+        """Start a tmux session with the given command"""
+        print(f"\033[94m[*]\033[0m Starting \033[92m{title}\033[0m in tmux session: \033[93m{session_name}\033[0m")
         
-    def open_terminal(self, title, command):
-        """Open a new terminal window with the given command"""
-        print(f"[*] Opening terminal for: {title}")
+        # Check if session exists and kill it
+        os.system(f"tmux has-session -t {session_name} 2>/dev/null && tmux kill-session -t {session_name}; sleep 1")
         
-        if sys.platform == 'win32':
-            # For Windows/WSL - use Windows Terminal
-            try:
-                # Try using Windows Terminal
-                proc = subprocess.Popen([
-                    'wt', '-w', '0', 'nt', 'wsl', 'bash', '-c', command
-                ])
-                self.terminal_pids.append((title, proc))
-                print(f"    ✓ Started: {title} (PID: {proc.pid})")
-            except FileNotFoundError:
-                # Fallback to wsl bash
-                proc = subprocess.Popen([
-                    'wsl', 'bash', '-c', command
-                ])
-                self.terminal_pids.append((title, proc))
-                print(f"    ✓ Started: {title} (PID: {proc.pid})")
+        # Create new tmux session
+        tmux_cmd = f"tmux new-session -d -s {session_name} \"bash -lc '{command}; echo; echo \\\"Process exited. Press Ctrl+b then d to detach.\\\"; exec bash'\""
+        result = os.system(tmux_cmd)
+        
+        if result == 0:
+            print(f"    \033[92m✓\033[0m {title} started in session: {session_name}")
         else:
-            # For Linux - use gnome-terminal or xterm
-            if os.system('which gnome-terminal > /dev/null 2>&1') == 0:
-                proc = subprocess.Popen([
-                    'gnome-terminal', '--',
-                    'bash', '-c', f'{command}; read -p "Press Enter to close..."'
-                ])
-            elif os.system('which xterm > /dev/null 2>&1') == 0:
-                proc = subprocess.Popen([
-                    'xterm', '-title', title, '-e',
-                    'bash', '-c', f'{command}; read -p "Press Enter to close..."'
-                ])
-            else:
-                # Fallback
-                proc = subprocess.Popen([
-                    'bash', '-c', command
-                ])
-            
-            self.terminal_pids.append((title, proc))
-            print(f"    ✓ Started: {title} (PID: {proc.pid})")
+            print(f"    \033[91m[ERROR]\033[0m Failed to start {title}")
+            sys.exit(1)
     
     def run(self):
-        """Run all startup steps with separate terminals"""
+        """Run all startup steps with separate tmux sessions"""
         print("=" * 70)
-        print(" " * 15 + "ORAN Stack Startup Script - Advanced")
+        print(" " * 15 + "ORAN Stack Startup Script - tmux Version")
         print("=" * 70)
         print()
         
         try:
             # Step 1: RIC Stack
-            print("[1/4] Starting RIC Stack...")
-            self.open_terminal(
+            print("\033[94m[1/4]\033[0m Starting RIC Stack...")
+            self.start_tmux_session(
+                "ric_stack",
                 "RIC Stack",
                 f"cd {RIC_PATH} && docker compose up"
             )
-            time.sleep(2)
+            time.sleep(5)
             
             # Step 2: Open 5GS Core
-            print("\n[2/4] Starting Open 5GS Core...")
-            self.open_terminal(
-                "5GS Core",
-                f"cd {SRSRAN_PATH} && docker compose up 5gc"
+            print("\n\033[94m[2/4]\033[0m Starting Open5GS Core...")
+            self.start_tmux_session(
+                "open5gs_core",
+                "Open5GS Core",
+                f"cd {CORE5G_PATH} && docker compose up 5gc"
             )
-            time.sleep(2)
+            time.sleep(5)
             
             # Step 3: srsRAN gNB
-            print("\n[3/4] Starting srsRAN gNB...")
-            print("    ⏳ Waiting 5 seconds before starting gNB...")
+            print("\n\033[94m[3/4]\033[0m Starting srsRAN gNB...")
+            print(" \033[93m⏳ Waiting 5 seconds before starting gNB...\033[0m")
             time.sleep(5)
-            self.open_terminal(
+            self.start_tmux_session(
+                "gnb",
                 "srsRAN gNB",
-                f"cd {CONFIGS_PATH} && gnb -c gnb_zmq.yaml"
+                f"cd {CONFIGS_PATH} && gnb -c {GNB_CONFIG}"
             )
-            print("    💡 Watch for gNB connecting to AMF in the terminal")
-            time.sleep(3)
+            print(" \033[93m💡 Check gNB logs for AMF and E2 connection.\033[0m")
+            time.sleep(5)
             
             # Step 4: srsUE
-            print("\n[4/4] Starting srsUE...")
-            print("    ⏳ Waiting 5 seconds before starting UE...")
+            print("\n\033[94m[4/4]\033[0m Starting srsUE...")
+            print(" \033[93m⏳ Waiting 5 seconds before starting UE...\033[0m")
             time.sleep(5)
-            self.open_terminal(
+            self.start_tmux_session(
+                "ue",
                 "srsUE",
-                f"sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd {CONFIGS_PATH} && sudo srsue ue_zmq.conf"
+                f"sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd {CONFIGS_PATH} && sudo srsue {UE_CONFIG}"
             )
             
             print("\n" + "=" * 70)
-            print("✓ All components launched in separate terminals!")
+            print("\033[92m✓ All components started in tmux sessions.\033[0m")
             print("=" * 70)
-            print("\nRunning Components:")
-            for title, proc in self.terminal_pids:
-                print(f"  • {title}: PID {proc.pid}")
-            print("\n" + "=" * 70)
-            print("Monitor each terminal for startup progress.")
-            print("Press Ctrl+C to attempt clean shutdown.")
+            print("\nView running sessions:")
+            print("  tmux ls")
+            print("\nAttach to RIC Stack:")
+            print("  tmux attach -t ric_stack")
+            print("\nAttach to Open5GS Core:")
+            print("  tmux attach -t open5gs_core")
+            print("\nAttach to gNB:")
+            print("  tmux attach -t gnb")
+            print("\nAttach to UE:")
+            print("  tmux attach -t ue")
+            print("\nDetach from any tmux session without stopping it:")
+            print("  Ctrl+b then d")
+            print("\nStop all ORAN sessions:")
+            print("  tmux kill-session -t ric_stack")
+            print("  tmux kill-session -t open5gs_core")
+            print("  tmux kill-session -t gnb")
+            print("  tmux kill-session -t ue")
             print("=" * 70)
-            
-            # Keep script running
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                print("\n\n[!] Shutdown requested...")
-                self.cleanup()
         
         except Exception as e:
-            print(f"\n[ERROR] {e}")
-            self.cleanup()
+            print(f"\n\033[91m[ERROR]\033[0m {e}")
             sys.exit(1)
-    
-    def cleanup(self):
-        """Attempt to terminate all processes"""
-        print("Cleaning up processes...")
-        for title, proc in self.terminal_pids:
-            try:
-                if proc.poll() is None:
-                    proc.terminate()
-                    print(f"  • Terminated: {title} (PID: {proc.pid})")
-            except:
-                pass
 
 if __name__ == "__main__":
     starter = ORANStackStarterAdvanced()
