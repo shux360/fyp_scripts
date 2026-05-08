@@ -25,16 +25,16 @@ python3 oran_stack_startup.py
 
 ## What Happens Next
 
-| Time  | Action                                | Watch For                     |
-| ----- | ------------------------------------- | ----------------------------- |
-| T+0s  | RIC Stack starts in tmux session      | Docker containers launching   |
-| T+5s  | 5GS Core starts in tmux session       | "Listening on..." messages    |
-| T+10s | gNB starts in tmux session            | Connection to AMF established |
-| T+15s | UE starts in tmux session             | Network connection successful |
-| T+20s | Cyber Probe Manager starts            | uvicorn listening on port 5050|
-| T+23s | O-DU Probe starts in tmux session     | Probe connects to manager     |
-| T+26s | O-CU Probe starts in tmux session     | Probe connects to manager     |
-| T+29s | O-RU Probe starts in tmux session     | Probe connects to manager     |
+| Time  | Action                            | Watch For                      |
+| ----- | --------------------------------- | ------------------------------ |
+| T+0s  | RIC Stack starts in tmux session  | Docker containers launching    |
+| T+5s  | 5GS Core starts in tmux session   | "Listening on..." messages     |
+| T+10s | gNB starts in tmux session        | Connection to AMF established  |
+| T+15s | UE starts in tmux session         | Network connection successful  |
+| T+20s | Cyber Probe Manager starts        | uvicorn listening on port 5050 |
+| T+23s | O-DU Probe starts in tmux session | Probe connects to manager      |
+| T+26s | O-CU Probe starts in tmux session | Probe connects to manager      |
+| T+29s | O-RU Probe starts in tmux session | Probe connects to manager      |
 
 ---
 

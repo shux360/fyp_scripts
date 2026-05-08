@@ -62,16 +62,16 @@ python3 oran_stack_startup.py
 
 All scripts automate the following steps:
 
-| Step | Command                                                                                                | Purpose                  |
-| ---- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
-| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                                        | Start RIC Stack          |
-| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                                          | Start Open 5GS Core      |
-| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                                           | Start srsRAN gNB         |
-| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf`               | Start srsUE              |
-| 5    | `cd /root/fyp/oran-sc-ric/xApps/python && python3 -m uvicorn cyber_probe_manager_xapp2:app --host ... ` | Start Cyber Probe Manager|
-| 6    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-odu-001 ... python3 cyber_probe.py`          | Start O-DU Probe         |
-| 7    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-ocu-001 ... python3 cyber_probe.py`          | Start O-CU Probe         |
-| 8    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-oru-001 ... python3 cyber_probe.py`          | Start O-RU Probe         |
+| Step | Command                                                                                                 | Purpose                   |
+| ---- | ------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                                         | Start RIC Stack           |
+| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                                           | Start Open 5GS Core       |
+| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                                            | Start srsRAN gNB          |
+| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf`                | Start srsUE               |
+| 5    | `cd /root/fyp/oran-sc-ric/xApps/python && python3 -m uvicorn cyber_probe_manager_xapp2:app --host ... ` | Start Cyber Probe Manager |
+| 6    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-odu-001 ... python3 cyber_probe.py`            | Start O-DU Probe          |
+| 7    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-ocu-001 ... python3 cyber_probe.py`            | Start O-CU Probe          |
+| 8    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-oru-001 ... python3 cyber_probe.py`            | Start O-RU Probe          |
 
 Each step runs in a separate tmux session with appropriate delays between startups.
 
