@@ -1,5 +1,5 @@
 #!/bin/bash
-# ORAN Stack Startup Script - tmux Version
+# ORAN Stack Startup Script - tmux Version with Cyber Probes
 # Starts each component in a separate tmux session for SSH/headless VM usage
 
 set -e
@@ -10,10 +10,30 @@ SRSRAN_PATH="${BASE_PATH}/srsRAN_Project"
 CORE5G_PATH="${BASE_PATH}/srsRAN_Project/docker"
 RIC_PATH="${BASE_PATH}/oran-sc-ric"
 CONFIGS_PATH="${SRSRAN_PATH}/configs"
+XAPPS_PATH="${RIC_PATH}/xApps/python"
 
 # Config files
 GNB_CONFIG="gnb_zmq.yaml"
 UE_CONFIG="ue_zmq.conf"
+
+# Cyber Probe config
+PROBE_ODU_ID="probe-odu-001"
+PROBE_ODU_COMPONENT="O-DU"
+PROBE_ODU_NAME="simulated-o-du-1"
+PROBE_ODU_IP="10.0.0.12"
+PROBE_ODU_INTERFACE="E2"
+
+PROBE_OCU_ID="probe-ocu-001"
+PROBE_OCU_COMPONENT="O-CU"
+PROBE_OCU_NAME="simulated-o-cu-1"
+PROBE_OCU_IP="10.0.0.13"
+PROBE_OCU_INTERFACE="F1/E1/NG"
+
+PROBE_ORU_ID="probe-oru-001"
+PROBE_ORU_COMPONENT="O-RU"
+PROBE_ORU_NAME="simulated-o-ru-1"
+PROBE_ORU_IP="10.0.0.11"
+PROBE_ORU_INTERFACE="OPEN-FRONTHAUL"
 
 # Colors
 RED='\033[0;31m'
@@ -89,10 +109,30 @@ start_tmux_session "gnb" "srsRAN gNB" "cd ${CONFIGS_PATH} && gnb -c ${GNB_CONFIG
 echo -e "${YELLOW}💡 Check gNB logs for AMF and E2 connection.${NC}"
 sleep 5
 
-echo -e "${BLUE}[4/4]${NC} Starting srsUE..."
+echo -e "${BLUE}[4/8]${NC} Starting srsUE..."
 echo -e "${YELLOW}⏳ Waiting 5 seconds before starting UE...${NC}"
 sleep 5
 start_tmux_session "ue" "srsUE" "sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd ${CONFIGS_PATH} && sudo srsue ${UE_CONFIG}"
+
+echo -e "${BLUE}[5/8]${NC} Starting Cyber Probe Manager..."
+echo -e "${YELLOW}⏳ Waiting 5 seconds before starting cyber probe manager...${NC}"
+sleep 5
+start_tmux_session "cyber_probe_manager" "Cyber Probe Manager" "cd ${XAPPS_PATH} && python3 -m uvicorn cyber_probe_manager_xapp2:app --host 0.0.0.0 --port 5050"
+
+echo -e "${BLUE}[6/8]${NC} Starting O-DU Probe..."
+echo -e "${YELLOW}⏳ Waiting 3 seconds before starting O-DU probe...${NC}"
+sleep 3
+start_tmux_session "probe_odu" "O-DU Probe" "cd ${XAPPS_PATH} && PROBE_ID=${PROBE_ODU_ID} COMPONENT_TYPE=${PROBE_ODU_COMPONENT} COMPONENT_NAME=${PROBE_ODU_NAME} IP_ADDRESS=${PROBE_ODU_IP} INTERFACE=${PROBE_ODU_INTERFACE} python3 cyber_probe.py"
+
+echo -e "${BLUE}[7/8]${NC} Starting O-CU Probe..."
+echo -e "${YELLOW}⏳ Waiting 3 seconds before starting O-CU probe...${NC}"
+sleep 3
+start_tmux_session "probe_ocu" "O-CU Probe" "cd ${XAPPS_PATH} && PROBE_ID=${PROBE_OCU_ID} COMPONENT_TYPE=${PROBE_OCU_COMPONENT} COMPONENT_NAME=${PROBE_OCU_NAME} IP_ADDRESS=${PROBE_OCU_IP} INTERFACE=${PROBE_OCU_INTERFACE} python3 cyber_probe.py"
+
+echo -e "${BLUE}[8/8]${NC} Starting O-RU Probe..."
+echo -e "${YELLOW}⏳ Waiting 3 seconds before starting O-RU probe...${NC}"
+sleep 3
+start_tmux_session "probe_oru" "O-RU Probe" "cd ${XAPPS_PATH} && PROBE_ID=${PROBE_ORU_ID} COMPONENT_TYPE=${PROBE_ORU_COMPONENT} COMPONENT_NAME=${PROBE_ORU_NAME} IP_ADDRESS=${PROBE_ORU_IP} INTERFACE=${PROBE_ORU_INTERFACE} python3 cyber_probe.py"
 
 echo ""
 echo "=========================================================================="
@@ -114,6 +154,18 @@ echo ""
 echo "Attach to UE:"
 echo "  tmux attach -t ue"
 echo ""
+echo "Attach to Cyber Probe Manager:"
+echo "  tmux attach -t cyber_probe_manager"
+echo ""
+echo "Attach to O-DU Probe:"
+echo "  tmux attach -t probe_odu"
+echo ""
+echo "Attach to O-CU Probe:"
+echo "  tmux attach -t probe_ocu"
+echo ""
+echo "Attach to O-RU Probe:"
+echo "  tmux attach -t probe_oru"
+echo ""
 echo "Detach from any tmux session without stopping it:"
 echo "  Ctrl+b then d"
 echo ""
@@ -122,4 +174,8 @@ echo "  tmux kill-session -t ric_stack"
 echo "  tmux kill-session -t open5gs_core"
 echo "  tmux kill-session -t gnb"
 echo "  tmux kill-session -t ue"
+echo "  tmux kill-session -t cyber_probe_manager"
+echo "  tmux kill-session -t probe_odu"
+echo "  tmux kill-session -t probe_ocu"
+echo "  tmux kill-session -t probe_oru"
 echo "=========================================================================="

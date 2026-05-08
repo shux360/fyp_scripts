@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ORAN Stack Startup Script - Advanced Version with tmux
-Starts each component in a separate tmux session
+ORAN Stack Startup Script - Advanced Version with tmux and Cyber Probes
+Starts each component in a separate tmux session with cyber probe support
 """
 
 import subprocess
@@ -15,10 +15,48 @@ SRSRAN_PATH = f"{BASE_PATH}/srsRAN_Project"
 CORE5G_PATH = f"{BASE_PATH}/srsRAN_Project/docker"
 RIC_PATH = f"{BASE_PATH}/oran-sc-ric"
 CONFIGS_PATH = f"{SRSRAN_PATH}/configs"
+XAPPS_PATH = f"{RIC_PATH}/xApps/python"
 
 # Config files
 GNB_CONFIG = "gnb_zmq.yaml"
 UE_CONFIG = "ue_zmq.conf"
+
+# Cyber Probe Configuration
+PROBES = {
+    "probe_odu": {
+        "title": "O-DU Probe",
+        "session": "probe_odu",
+        "env": {
+            "PROBE_ID": "probe-odu-001",
+            "COMPONENT_TYPE": "O-DU",
+            "COMPONENT_NAME": "simulated-o-du-1",
+            "IP_ADDRESS": "10.0.0.12",
+            "INTERFACE": "E2"
+        }
+    },
+    "probe_ocu": {
+        "title": "O-CU Probe",
+        "session": "probe_ocu",
+        "env": {
+            "PROBE_ID": "probe-ocu-001",
+            "COMPONENT_TYPE": "O-CU",
+            "COMPONENT_NAME": "simulated-o-cu-1",
+            "IP_ADDRESS": "10.0.0.13",
+            "INTERFACE": "F1/E1/NG"
+        }
+    },
+    "probe_oru": {
+        "title": "O-RU Probe",
+        "session": "probe_oru",
+        "env": {
+            "PROBE_ID": "probe-oru-001",
+            "COMPONENT_TYPE": "O-RU",
+            "COMPONENT_NAME": "simulated-o-ru-1",
+            "IP_ADDRESS": "10.0.0.11",
+            "INTERFACE": "OPEN-FRONTHAUL"
+        }
+    }
+}
 
 class ORANStackStarterAdvanced:
     def __init__(self):
@@ -32,7 +70,8 @@ class ORANStackStarterAdvanced:
             "RIC": RIC_PATH,
             "srsRAN": SRSRAN_PATH,
             "Configs": CONFIGS_PATH,
-            "5GC": CORE5G_PATH
+            "5GC": CORE5G_PATH,
+            "xApps": XAPPS_PATH
         }
         for name, path in paths.items():
             if not os.path.isdir(path):
@@ -63,16 +102,35 @@ class ORANStackStarterAdvanced:
             print(f"    \033[91m[ERROR]\033[0m Failed to start {title}")
             sys.exit(1)
     
+    def start_probes(self):
+        """Step 6-8: Start cyber probes (O-DU, O-CU, O-RU)"""
+        probe_start_time = 6
+        for probe_key, probe_config in PROBES.items():
+            print(f"\n\033[94m[{probe_start_time}/8]\033[0m Starting {probe_config['title']}...")
+            print(f" \033[93m⏳ Waiting 3 seconds before starting {probe_config['title']}...\033[0m")
+            time.sleep(3)
+            
+            # Build environment variables
+            env_vars = " ".join([f"{k}={v}" for k, v in probe_config['env'].items()])
+            cmd = f'cd {XAPPS_PATH} && {env_vars} python3 cyber_probe.py'
+            
+            self.start_tmux_session(
+                probe_config['session'],
+                probe_config['title'],
+                cmd
+            )
+            probe_start_time += 1
+    
     def run(self):
         """Run all startup steps with separate tmux sessions"""
         print("=" * 70)
-        print(" " * 15 + "ORAN Stack Startup Script - tmux Version")
+        print(" " * 15 + "ORAN Stack Startup Script - tmux Version with Cyber Probes")
         print("=" * 70)
         print()
         
         try:
             # Step 1: RIC Stack
-            print("\033[94m[1/4]\033[0m Starting RIC Stack...")
+            print("\033[94m[1/8]\033[0m Starting RIC Stack...")
             self.start_tmux_session(
                 "ric_stack",
                 "RIC Stack",
@@ -81,7 +139,7 @@ class ORANStackStarterAdvanced:
             time.sleep(5)
             
             # Step 2: Open 5GS Core
-            print("\n\033[94m[2/4]\033[0m Starting Open5GS Core...")
+            print("\n\033[94m[2/8]\033[0m Starting Open5GS Core...")
             self.start_tmux_session(
                 "open5gs_core",
                 "Open5GS Core",
@@ -90,7 +148,7 @@ class ORANStackStarterAdvanced:
             time.sleep(5)
             
             # Step 3: srsRAN gNB
-            print("\n\033[94m[3/4]\033[0m Starting srsRAN gNB...")
+            print("\n\033[94m[3/8]\033[0m Starting srsRAN gNB...")
             print(" \033[93m⏳ Waiting 5 seconds before starting gNB...\033[0m")
             time.sleep(5)
             self.start_tmux_session(
@@ -102,7 +160,7 @@ class ORANStackStarterAdvanced:
             time.sleep(5)
             
             # Step 4: srsUE
-            print("\n\033[94m[4/4]\033[0m Starting srsUE...")
+            print("\n\033[94m[4/8]\033[0m Starting srsUE...")
             print(" \033[93m⏳ Waiting 5 seconds before starting UE...\033[0m")
             time.sleep(5)
             self.start_tmux_session(
@@ -110,6 +168,19 @@ class ORANStackStarterAdvanced:
                 "srsUE",
                 f"sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd {CONFIGS_PATH} && sudo srsue {UE_CONFIG}"
             )
+            
+            # Step 5: Cyber Probe Manager
+            print("\n\033[94m[5/8]\033[0m Starting Cyber Probe Manager...")
+            print(" \033[93m⏳ Waiting 5 seconds before starting cyber probe manager...\033[0m")
+            time.sleep(5)
+            self.start_tmux_session(
+                "cyber_probe_manager",
+                "Cyber Probe Manager",
+                f"cd {XAPPS_PATH} && python3 -m uvicorn cyber_probe_manager_xapp2:app --host 0.0.0.0 --port 5050"
+            )
+            
+            # Steps 6-8: Cyber Probes
+            self.start_probes()
             
             print("\n" + "=" * 70)
             print("\033[92m✓ All components started in tmux sessions.\033[0m")
@@ -124,6 +195,14 @@ class ORANStackStarterAdvanced:
             print("  tmux attach -t gnb")
             print("\nAttach to UE:")
             print("  tmux attach -t ue")
+            print("\nAttach to Cyber Probe Manager:")
+            print("  tmux attach -t cyber_probe_manager")
+            print("\nAttach to O-DU Probe:")
+            print("  tmux attach -t probe_odu")
+            print("\nAttach to O-CU Probe:")
+            print("  tmux attach -t probe_ocu")
+            print("\nAttach to O-RU Probe:")
+            print("  tmux attach -t probe_oru")
             print("\nDetach from any tmux session without stopping it:")
             print("  Ctrl+b then d")
             print("\nStop all ORAN sessions:")
@@ -131,6 +210,10 @@ class ORANStackStarterAdvanced:
             print("  tmux kill-session -t open5gs_core")
             print("  tmux kill-session -t gnb")
             print("  tmux kill-session -t ue")
+            print("  tmux kill-session -t cyber_probe_manager")
+            print("  tmux kill-session -t probe_odu")
+            print("  tmux kill-session -t probe_ocu")
+            print("  tmux kill-session -t probe_oru")
             print("=" * 70)
         
         except Exception as e:

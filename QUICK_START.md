@@ -25,12 +25,16 @@ python3 oran_stack_startup.py
 
 ## What Happens Next
 
-| Time  | Action                           | Watch For                     |
-| ----- | -------------------------------- | ----------------------------- |
-| T+0s  | RIC Stack starts in tmux session | Docker containers launching   |
-| T+5s  | 5GS Core starts in tmux session  | "Listening on..." messages    |
-| T+10s | gNB starts in tmux session       | Connection to AMF established |
-| T+15s | UE starts in tmux session        | Network connection successful |
+| Time  | Action                                | Watch For                     |
+| ----- | ------------------------------------- | ----------------------------- |
+| T+0s  | RIC Stack starts in tmux session      | Docker containers launching   |
+| T+5s  | 5GS Core starts in tmux session       | "Listening on..." messages    |
+| T+10s | gNB starts in tmux session            | Connection to AMF established |
+| T+15s | UE starts in tmux session             | Network connection successful |
+| T+20s | Cyber Probe Manager starts            | uvicorn listening on port 5050|
+| T+23s | O-DU Probe starts in tmux session     | Probe connects to manager     |
+| T+26s | O-CU Probe starts in tmux session     | Probe connects to manager     |
+| T+29s | O-RU Probe starts in tmux session     | Probe connects to manager     |
 
 ---
 
@@ -92,6 +96,50 @@ Loading configuration: ue_zmq.conf
 [UE] Connected to Core
 ```
 
+### Session 5: Cyber Probe Manager (cyber_probe_manager)
+
+```
+Uvicorn running on http://0.0.0.0:5050
+Application startup complete
+Listening for probe registrations
+```
+
+### Session 6: O-DU Probe (probe_odu)
+
+```
+PROBE_ID=probe-odu-001
+COMPONENT_TYPE=O-DU
+COMPONENT_NAME=simulated-o-du-1
+IP_ADDRESS=10.0.0.12
+INTERFACE=E2
+[O-DU Probe] Connected to manager
+[O-DU Probe] Monitoring O-DU activity
+```
+
+### Session 7: O-CU Probe (probe_ocu)
+
+```
+PROBE_ID=probe-ocu-001
+COMPONENT_TYPE=O-CU
+COMPONENT_NAME=simulated-o-cu-1
+IP_ADDRESS=10.0.0.13
+INTERFACE=F1/E1/NG
+[O-CU Probe] Connected to manager
+[O-CU Probe] Monitoring O-CU activity
+```
+
+### Session 8: O-RU Probe (probe_oru)
+
+```
+PROBE_ID=probe-oru-001
+COMPONENT_TYPE=O-RU
+COMPONENT_NAME=simulated-o-ru-1
+IP_ADDRESS=10.0.0.11
+INTERFACE=OPEN-FRONTHAUL
+[O-RU Probe] Connected to manager
+[O-RU Probe] Monitoring O-RU activity
+```
+
 ---
 
 ## Health Check Commands
@@ -123,9 +171,16 @@ ps aux | grep gnb
 # Monitor srsue process
 ps aux | grep srsue
 
+# Monitor cyber probe manager
+ps aux | grep uvicorn
+
 # Attach to specific session for live output
-tmux attach -t gnb     # For gNB logs
-tmux attach -t ue      # For UE logs
+tmux attach -t gnb                  # For gNB logs
+tmux attach -t ue                   # For UE logs
+tmux attach -t cyber_probe_manager  # For Cyber Probe Manager logs
+tmux attach -t probe_odu            # For O-DU Probe logs
+tmux attach -t probe_ocu            # For O-CU Probe logs
+tmux attach -t probe_oru            # For O-RU Probe logs
 ```
 
 ---
@@ -133,14 +188,18 @@ tmux attach -t ue      # For UE logs
 ## Stopping Services
 
 ```bash
-# Method 1: Kill tmux sessions (Recommended)
+# Method 1: Kill tmux sessions individually (Recommended)
 tmux kill-session -t ric_stack
 tmux kill-session -t open5gs_core
 tmux kill-session -t gnb
 tmux kill-session -t ue
+tmux kill-session -t cyber_probe_manager
+tmux kill-session -t probe_odu
+tmux kill-session -t probe_ocu
+tmux kill-session -t probe_oru
 
 # Method 2: Kill all at once
-tmux kill-session -t ric_stack; tmux kill-session -t open5gs_core; tmux kill-session -t gnb; tmux kill-session -t ue
+tmux kill-session -t ric_stack; tmux kill-session -t open5gs_core; tmux kill-session -t gnb; tmux kill-session -t ue; tmux kill-session -t cyber_probe_manager; tmux kill-session -t probe_odu; tmux kill-session -t probe_ocu; tmux kill-session -t probe_oru
 
 # Method 3: Use Docker to stop containers
 # RIC Stack

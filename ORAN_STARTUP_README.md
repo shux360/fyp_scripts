@@ -62,12 +62,16 @@ python3 oran_stack_startup.py
 
 All scripts automate the following steps:
 
-| Step | Command                                                                                  | Purpose             |
-| ---- | ---------------------------------------------------------------------------------------- | ------------------- |
-| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                          | Start RIC Stack     |
-| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                            | Start Open 5GS Core |
-| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                             | Start srsRAN gNB    |
-| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf` | Start srsUE         |
+| Step | Command                                                                                                | Purpose                  |
+| ---- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
+| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                                        | Start RIC Stack          |
+| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                                          | Start Open 5GS Core      |
+| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                                           | Start srsRAN gNB         |
+| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf`               | Start srsUE              |
+| 5    | `cd /root/fyp/oran-sc-ric/xApps/python && python3 -m uvicorn cyber_probe_manager_xapp2:app --host ... ` | Start Cyber Probe Manager|
+| 6    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-odu-001 ... python3 cyber_probe.py`          | Start O-DU Probe         |
+| 7    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-ocu-001 ... python3 cyber_probe.py`          | Start O-CU Probe         |
+| 8    | `cd /root/fyp/oran-sc-ric/xApps/python && PROBE_ID=probe-oru-001 ... python3 cyber_probe.py`          | Start O-RU Probe         |
 
 Each step runs in a separate tmux session with appropriate delays between startups.
 
@@ -83,6 +87,14 @@ Each step runs in a separate tmux session with appropriate delays between startu
 3. srsRAN gNB starts (5 second delay before starting)
    ↓
 4. srsUE starts (5 second delay before starting)
+   ↓
+5. Cyber Probe Manager starts (5 second delay before starting)
+   ↓
+6. O-DU Probe starts (3 second delay before starting)
+   ↓
+7. O-CU Probe starts (3 second delay before starting)
+   ↓
+8. O-RU Probe starts (3 second delay before starting)
 ```
 
 ---
@@ -114,6 +126,8 @@ If it already exists, the error is suppressed and execution continues.
 - Detach from a session: `Ctrl+b` then `d`
 - The gNB session will show connection to AMF and E2 nodes
 - The UE session will show connection establishment
+- The cyber probe manager will show probe registration and monitoring
+- Each probe session will show its monitoring activity
 
 ### Stopping Services
 
@@ -125,9 +139,13 @@ tmux kill-session -t ric_stack
 tmux kill-session -t open5gs_core
 tmux kill-session -t gnb
 tmux kill-session -t ue
+tmux kill-session -t cyber_probe_manager
+tmux kill-session -t probe_odu
+tmux kill-session -t probe_ocu
+tmux kill-session -t probe_oru
 
 # Or stop all ORAN-related sessions at once
-tmux kill-session -t ric_stack; tmux kill-session -t open5gs_core; tmux kill-session -t gnb; tmux kill-session -t ue
+tmux kill-session -t ric_stack; tmux kill-session -t open5gs_core; tmux kill-session -t gnb; tmux kill-session -t ue; tmux kill-session -t cyber_probe_manager; tmux kill-session -t probe_odu; tmux kill-session -t probe_ocu; tmux kill-session -t probe_oru
 ```
 
 ---

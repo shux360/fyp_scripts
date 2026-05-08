@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ORAN Stack Startup Script
-Starts the RIC stack, 5GS core, srsRAN gNB, and srsUE in separate terminals
+ORAN Stack Startup Script with Cyber Probes
+Starts the RIC stack, 5GS core, srsRAN gNB, srsUE, and cyber probes in separate tmux sessions
 """
 
 import subprocess
@@ -16,10 +16,48 @@ SRSRAN_PATH = f"{BASE_PATH}/srsRAN_Project"
 CORE5G_PATH = f"{BASE_PATH}/srsRAN_Project/docker"
 RIC_PATH = f"{BASE_PATH}/oran-sc-ric"
 CONFIGS_PATH = f"{SRSRAN_PATH}/configs"
+XAPPS_PATH = f"{RIC_PATH}/xApps/python"
 
 # Config files
 GNB_CONFIG = "gnb_zmq.yaml"
 UE_CONFIG = "ue_zmq.conf"
+
+# Cyber Probe Configuration
+PROBES = {
+    "probe_odu": {
+        "title": "O-DU Probe",
+        "session": "probe_odu",
+        "env": {
+            "PROBE_ID": "probe-odu-001",
+            "COMPONENT_TYPE": "O-DU",
+            "COMPONENT_NAME": "simulated-o-du-1",
+            "IP_ADDRESS": "10.0.0.12",
+            "INTERFACE": "E2"
+        }
+    },
+    "probe_ocu": {
+        "title": "O-CU Probe",
+        "session": "probe_ocu",
+        "env": {
+            "PROBE_ID": "probe-ocu-001",
+            "COMPONENT_TYPE": "O-CU",
+            "COMPONENT_NAME": "simulated-o-cu-1",
+            "IP_ADDRESS": "10.0.0.13",
+            "INTERFACE": "F1/E1/NG"
+        }
+    },
+    "probe_oru": {
+        "title": "O-RU Probe",
+        "session": "probe_oru",
+        "env": {
+            "PROBE_ID": "probe-oru-001",
+            "COMPONENT_TYPE": "O-RU",
+            "COMPONENT_NAME": "simulated-o-ru-1",
+            "IP_ADDRESS": "10.0.0.11",
+            "INTERFACE": "OPEN-FRONTHAUL"
+        }
+    }
+}
 
 class ORANStackStarter:
     def __init__(self):
@@ -92,16 +130,43 @@ class ORANStackStarter:
     
     def start_ue(self):
         """Step 4: Start the srsUE"""
-        print("[4/4] Starting srsUE...")
+        print("[4/8] Starting srsUE...")
         print("   ⏳ Waiting 5 seconds before starting UE...")
         time.sleep(5)
         cmd = f'sudo ip netns add ue1 2>/dev/null || true; sudo ip netns list; cd {CONFIGS_PATH} && sudo srsue {UE_CONFIG}'
         self.start_tmux_session("ue", "srsUE", cmd)
     
+    def start_cyber_probe_manager(self):
+        """Step 5: Start Cyber Probe Manager"""
+        print("\n[5/8] Starting Cyber Probe Manager...")
+        print("   ⏳ Waiting 5 seconds before starting cyber probe manager...")
+        time.sleep(5)
+        cmd = f'cd {XAPPS_PATH} && python3 -m uvicorn cyber_probe_manager_xapp2:app --host 0.0.0.0 --port 5050'
+        self.start_tmux_session("cyber_probe_manager", "Cyber Probe Manager", cmd)
+    
+    def start_probes(self):
+        """Step 6-8: Start cyber probes (O-DU, O-CU, O-RU)"""
+        probe_start_time = 6
+        for probe_key, probe_config in PROBES.items():
+            print(f"\n[{probe_start_time}/8] Starting {probe_config['title']}...")
+            print(f"   ⏳ Waiting 3 seconds before starting {probe_config['title']}...")
+            time.sleep(3)
+            
+            # Build environment variables
+            env_vars = " ".join([f"{k}={v}" for k, v in probe_config['env'].items()])
+            cmd = f'cd {XAPPS_PATH} && {env_vars} python3 cyber_probe.py'
+            
+            self.start_tmux_session(
+                probe_config['session'],
+                probe_config['title'],
+                cmd
+            )
+            probe_start_time += 1
+    
     def run(self):
         """Run all startup steps"""
         print("=" * 70)
-        print(" " * 15 + "ORAN Stack Startup Script - tmux Version")
+        print(" " * 15 + "ORAN Stack Startup Script - tmux Version with Cyber Probes")
         print("=" * 70)
         print()
         
@@ -110,6 +175,8 @@ class ORANStackStarter:
             self.start_5gc()
             self.start_gnb()
             self.start_ue()
+            self.start_cyber_probe_manager()
+            self.start_probes()
             
             print()
             print("=" * 70)
@@ -131,6 +198,18 @@ class ORANStackStarter:
             print("Attach to UE:")
             print("  tmux attach -t ue")
             print()
+            print("Attach to Cyber Probe Manager:")
+            print("  tmux attach -t cyber_probe_manager")
+            print()
+            print("Attach to O-DU Probe:")
+            print("  tmux attach -t probe_odu")
+            print()
+            print("Attach to O-CU Probe:")
+            print("  tmux attach -t probe_ocu")
+            print()
+            print("Attach to O-RU Probe:")
+            print("  tmux attach -t probe_oru")
+            print()
             print("Detach from any tmux session without stopping it:")
             print("  Ctrl+b then d")
             print()
@@ -139,6 +218,10 @@ class ORANStackStarter:
             print("  tmux kill-session -t open5gs_core")
             print("  tmux kill-session -t gnb")
             print("  tmux kill-session -t ue")
+            print("  tmux kill-session -t cyber_probe_manager")
+            print("  tmux kill-session -t probe_odu")
+            print("  tmux kill-session -t probe_ocu")
+            print("  tmux kill-session -t probe_oru")
             print("=" * 70)
             
             # Keep the script running
@@ -156,7 +239,7 @@ class ORANStackStarter:
     
     def cleanup(self):
         """Terminate all tmux sessions"""
-        sessions = ["ric_stack", "open5gs_core", "gnb", "ue"]
+        sessions = ["ric_stack", "open5gs_core", "gnb", "ue", "cyber_probe_manager", "probe_odu", "probe_ocu", "probe_oru"]
         for session in sessions:
             os.system(f"tmux kill-session -t {session} 2>/dev/null || true")
             print(f"  • Terminated tmux session: {session}")
