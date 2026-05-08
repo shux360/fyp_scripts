@@ -62,12 +62,12 @@ python3 oran_stack_startup.py
 
 All scripts automate the following steps:
 
-| Step | Command                                                                                           | Purpose             |
-| ---- | ------------------------------------------------------------------------------------------------- | ------------------- |
-| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                                  | Start RIC Stack     |
-| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                                    | Start Open 5GS Core |
-| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                                     | Start srsRAN gNB    |
-| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf`         | Start srsUE         |
+| Step | Command                                                                                  | Purpose             |
+| ---- | ---------------------------------------------------------------------------------------- | ------------------- |
+| 1    | `cd /root/fyp/oran-sc-ric && docker compose up`                                          | Start RIC Stack     |
+| 2    | `cd /root/fyp/srsRAN_Project/docker && docker compose up 5gc`                            | Start Open 5GS Core |
+| 3    | `cd /root/fyp/srsRAN_Project/configs && gnb -c gnb_zmq.yaml`                             | Start srsRAN gNB    |
+| 4    | `sudo ip netns add ue1 && cd /root/fyp/srsRAN_Project/configs && sudo srsue ue_zmq.conf` | Start srsUE         |
 
 Each step runs in a separate tmux session with appropriate delays between startups.
 

@@ -235,12 +235,12 @@ tmux attach -t ue
 
 ## File Locations Reference
 
-| Component | Config Path                             | Key Files            |
-| --------- | --------------------------------------- | -------------------- |
-| RIC Stack | `/root/fyp/oran-sc-ric/`                | `docker-compose.yml` |
-| 5GS Core  | `/root/fyp/srsRAN_Project/docker/`      | `docker-compose.yml` |
-| gNB       | `/root/fyp/srsRAN_Project/configs/`     | `gnb_zmq.yaml`       |
-| UE        | `/root/fyp/srsRAN_Project/configs/`     | `ue_zmq.conf`        |
+| Component | Config Path                         | Key Files            |
+| --------- | ----------------------------------- | -------------------- |
+| RIC Stack | `/root/fyp/oran-sc-ric/`            | `docker-compose.yml` |
+| 5GS Core  | `/root/fyp/srsRAN_Project/docker/`  | `docker-compose.yml` |
+| gNB       | `/root/fyp/srsRAN_Project/configs/` | `gnb_zmq.yaml`       |
+| UE        | `/root/fyp/srsRAN_Project/configs/` | `ue_zmq.conf`        |
 
 ---
 
